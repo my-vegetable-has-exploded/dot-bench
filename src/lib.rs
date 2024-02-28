@@ -50,9 +50,9 @@ unsafe fn dot_i8_avx512vnni(x: &[i8], y: &[i8]) -> f32 {
                 p_x = p_x.add(64);
                 p_y = p_y.add(64);
             }
-            // there are only _mm512_dpbusd_epi32 support, dpbusd will zeroextend a[i], signextend b[i], so we need to convert a[i] positive and xor corresponding b[i] to get right result.
-            let neg_mask = _mm512_cmpgt_epi8_mask(zero, vec_x);
-            vec_x = _mm512_mask_sub_epi8(vec_x, neg_mask, zero, vec_x);
+            // there are only _mm512_dpbusd_epi32 support, dpbusd will zeroextend a[i] and signextend b[i] first, so we need to convert a[i] positive and change corresponding b[i] to get right result.
+            let neg_mask = _mm512_movepi8_mask(vec_x);
+            vec_x = _mm512_mask_abs_epi8(vec_x, neg_mask, vec_x);
             vec_y = _mm512_mask_sub_epi8(vec_y, neg_mask, zero, vec_y);
             result = _mm512_dpbusd_epi32(result, vec_x, vec_y);
         }

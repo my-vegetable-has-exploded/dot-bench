@@ -1,6 +1,4 @@
 #![feature(test)]
-#![feature(avx512_target_feature)]
-#![feature(stdarch_x86_avx512)]
 
 extern crate test;
 
@@ -8,9 +6,10 @@ extern crate test;
     "x86_64/x86-64-v4",
     "x86_64/x86-64-v3",
     "x86_64/x86-64-v2",
-    "aarch64+neon"
+    "aarch64+neon",
+    "aarch64+sve"
 ))]
-fn dot_i8_fallback(x: &[i8], y: &[i8]) -> f32 {
+pub fn dot_i8_fallback(x: &[i8], y: &[i8]) -> f32 {
     // i8 * i8 fall in range of i16. Since our length is less than (2^16 - 1), the result won't overflow.
     let mut sum = 0;
     assert_eq!(x.len(), y.len());
@@ -22,9 +21,9 @@ fn dot_i8_fallback(x: &[i8], y: &[i8]) -> f32 {
     sum as f32
 }
 
-#[cfg(any(target_arch = "x86_64"))]
+#[cfg(target_arch = "x86_64")]
 #[target_feature(enable = "avx512f,avx512bw,avx512vnni,bmi2")]
-unsafe fn dot_i8_avx512vnni(x: &[i8], y: &[i8]) -> f32 {
+pub unsafe fn dot_i8_avx512vnni(x: &[i8], y: &[i8]) -> f32 {
     use std::arch::x86_64::*;
 
     assert_eq!(x.len(), y.len());
@@ -61,9 +60,9 @@ unsafe fn dot_i8_avx512vnni(x: &[i8], y: &[i8]) -> f32 {
     sum as f32
 }
 
-#[cfg(any(target_arch = "x86_64"))]
+#[cfg(target_arch = "x86_64")]
 #[target_feature(enable = "avx512f,avx512bw,avx512vnni,bmi2")]
-unsafe fn dot_i8_avx512vnni_fault(x: &[i8], y: &[i8]) -> f32 {
+pub unsafe fn dot_i8_avx512vnni_fault(x: &[i8], y: &[i8]) -> f32 {
     use std::arch::x86_64::*;
 
     assert_eq!(x.len(), y.len());
@@ -95,9 +94,10 @@ unsafe fn dot_i8_avx512vnni_fault(x: &[i8], y: &[i8]) -> f32 {
     sum as f32
 }
 
-#[cfg(any(target_arch = "x86_64"))]
+#[cfg(target_arch = "x86_64")]
 #[target_feature(enable = "avx512f,avx512bw,bmi2")]
-unsafe fn dot_i8_avx512(x: &[i8], y: &[i8]) -> f32 {
+/// for llvm auto vectorization, axv512 is disabled default due to the frequency drops in some cpu architecture (although this problem is much better nowadays).
+pub unsafe fn dot_i8_avx512(x: &[i8], y: &[i8]) -> f32 {
     use std::arch::x86_64::*;
 
     assert_eq!(x.len(), y.len());
@@ -130,7 +130,7 @@ unsafe fn dot_i8_avx512(x: &[i8], y: &[i8]) -> f32 {
     sum as f32
 }
 
-// #[cfg(any(target_arch = "x86_64"))]
+// #[cfg(target_arch = "x86_64")]
 // rust don't support AVX_VNNI_INT8 yet.
 // unsafe fn dot_i8_avxvnni(x: &[i8], y: &[i8]) -> f32 {
 // }
@@ -198,7 +198,17 @@ mod tests {
     }
 
     #[test]
+    #[cfg(target_arch = "x86_64")]
     fn test_dot() {
+        // check vnni target is available
+        if !(std::is_x86_feature_detected!("avx512f")
+            && std::is_x86_feature_detected!("avx512bw")
+            && std::is_x86_feature_detected!("avx512vnni")
+            && std::is_x86_feature_detected!("bmi2"))
+        {
+            println!("avx512vnni is not available, skip test_dot");
+            return;
+        }
         let length = 10000;
         let x = new_random_vec_i8(length);
         let y = new_random_vec_i8(length);
@@ -214,28 +224,57 @@ mod tests {
     }
 
     #[bench]
+    #[cfg(target_arch = "x86_64")]
     fn bench_dot_vnni_fault(b: &mut Bencher) {
+        // check vnni target is available
+        if !(std::is_x86_feature_detected!("avx512f")
+            && std::is_x86_feature_detected!("avx512bw")
+            && std::is_x86_feature_detected!("avx512vnni")
+            && std::is_x86_feature_detected!("bmi2"))
+        {
+            println!("avx512vnni is not available, skip bench_dot_vnni_fault");
+            return;
+        }
         let x = new_random_vec_i8(10000);
         let y = new_random_vec_i8(10000);
         b.iter(|| unsafe { dot_i8_avx512vnni_fault(&x, &y) });
     }
 
     #[bench]
+    #[cfg(target_arch = "x86_64")]
     fn bench_dot_vnni(b: &mut Bencher) {
+        // check vnni target is available
+        if !(std::is_x86_feature_detected!("avx512f")
+            && std::is_x86_feature_detected!("avx512bw")
+            && std::is_x86_feature_detected!("avx512vnni")
+            && std::is_x86_feature_detected!("bmi2"))
+        {
+            println!("avx512vnni is not available, skip bench_dot_vnni");
+            return;
+        }
         let x = new_random_vec_i8(10000);
         let y = new_random_vec_i8(10000);
         b.iter(|| unsafe { dot_i8_avx512vnni(&x, &y) });
     }
 
     #[bench]
+    #[cfg(target_arch = "x86_64")]
     fn bench_dot_avx512(b: &mut Bencher) {
+        // check avx512 target is available
+        if !(std::is_x86_feature_detected!("avx512f")
+            && std::is_x86_feature_detected!("avx512bw")
+            && std::is_x86_feature_detected!("bmi2"))
+        {
+            println!("avx512 is not available, skip bench_dot_avx512");
+            return;
+        }
         let x = new_random_vec_i8(10000);
         let y = new_random_vec_i8(10000);
         b.iter(|| unsafe { dot_i8_avx512(&x, &y) });
     }
 
     #[bench]
-    fn bench_dot_fallback(b: &mut Bencher) {
+    fn bench_dot_i8_fallback(b: &mut Bencher) {
         let x = new_random_vec_i8(10000);
         let y = new_random_vec_i8(10000);
         b.iter(|| dot_i8_fallback(&x, &y));

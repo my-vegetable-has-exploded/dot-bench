@@ -3,7 +3,7 @@
 - install rust
 - change to nightly
 ```bash
-rustup toolchain override nightly
+rustup override set nightly
 ```
 - run benchmark
 ```bash

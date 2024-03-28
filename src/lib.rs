@@ -1,4 +1,9 @@
 #![feature(test)]
+#![feature(core_intrinsics)]
+// TODO: rust f16 support is still wip. We use half crate as workaround.
+// https://github.com/rust-lang/rust/issues/116909
+use distance_sys;
+use half::f16;
 
 extern crate test;
 
@@ -17,6 +22,23 @@ pub fn dot_i8_fallback(x: &[i8], y: &[i8]) -> f32 {
     // according to https://godbolt.org/z/ff48vW4es, this loop will be autovectorized
     for i in 0..length {
         sum += (x[i] as i16 * y[i] as i16) as i32;
+    }
+    sum as f32
+}
+
+#[multiversion::multiversion(targets(
+    "x86_64/x86-64-v4",
+    "x86_64/x86-64-v3",
+    "x86_64/x86-64-v2",
+    "aarch64+neon",
+    "aarch64+sve"
+))]
+pub fn dot_f16_fallback(x: &[f16], y: &[f16]) -> f32 {
+    let mut sum = 0.0;
+    assert_eq!(x.len(), y.len());
+    let length = x.len();
+    for i in 0..length {
+        sum += f32::from(x[i] * y[i]);
     }
     sum as f32
 }
@@ -139,18 +161,45 @@ pub unsafe fn dot_i8_avx512(x: &[i8], y: &[i8]) -> f32 {
     "x86_64/x86-64-v4",
     "x86_64/x86-64-v3",
     "x86_64/x86-64-v2",
-    "aarch64+neon"
+    "aarch64+neon",
+    "aarch64+sve"
 ))]
-pub fn dot_f32(x: &[f32], y: &[f32]) -> f32 {
+pub fn dot_f32_fallback(x: &[f32], y: &[f32]) -> f32 {
     assert_eq!(x.len(), y.len());
-    x.iter().zip(y.iter()).map(|(&a, &b)| a * b).sum()
+    // x.iter().zip(y.iter()).map(|(&a, &b)| a * b).sum()
+    let mut sum = 0.0;
+    for i in 0..x.len() {
+        unsafe { sum += std::intrinsics::fmul_fast(x[i], y[i]) };
+        // sum += x[i] * y[i];
+    }
+    sum
 }
+
+#[cfg(target_arch = "aarch64")]
+#[target_feature(enable = "sve")]
+pub unsafe fn dot_f32_sve(x: &[f32], y: &[f32]) -> f32 {
+    assert_eq!(x.len(), y.len());
+    let n = x.len();
+    unsafe { distance_sys::dot_f32_sve(x.as_ptr(), y.as_ptr(), n) }
+}
+// #[cfg(target_arch = "aarch64")]
+// #[target_feature(enable = "sve")]
+// pub unsafe fn dot_f32_sve(x: &[f32], y: &[f32]) -> f32 {
+//     use std::arch::aarch64::*;
+//     assert_eq!(x.len(), y.len());
+//     let sum = 0.0;
+// 	if(!std::is_aarch64_feature_detected!("sve")) {
+//     unsafe {}
+
+//     return sum;
+// }
 
 #[multiversion::multiversion(targets(
     "x86_64/x86-64-v4",
     "x86_64/x86-64-v3",
     "x86_64/x86-64-v2",
-    "aarch64+neon"
+    "aarch64+neon",
+    "aarch64+sve"
 ))]
 pub fn i8_quantization(vector: Vec<f32>) -> (Vec<i8>, f32, f32) {
     let min = vector.iter().copied().fold(f32::INFINITY, f32::min);
@@ -169,7 +218,8 @@ pub fn i8_quantization(vector: Vec<f32>) -> (Vec<i8>, f32, f32) {
     "x86_64/x86-64-v4",
     "x86_64/x86-64-v3",
     "x86_64/x86-64-v2",
-    "aarch64+neon"
+    "aarch64+neon",
+    "aarch64+sve"
 ))]
 pub fn i8_dequantization(vector: &[i8], alpha: f32, offset: f32) -> Vec<f32> {
     vector
@@ -182,6 +232,7 @@ pub fn i8_dequantization(vector: &[i8], alpha: f32, offset: f32) -> Vec<f32> {
 mod tests {
 
     use super::*;
+    use simsimd::SpatialSimilarity;
     use test::Bencher;
 
     fn new_random_vec_i8(size: usize) -> Vec<i8> {
@@ -281,9 +332,68 @@ mod tests {
     }
 
     #[bench]
-    fn bench_dot_f32(b: &mut Bencher) {
+    fn bench_dot_f32_fallback(b: &mut Bencher) {
         let x = new_random_vec_f32(10000);
         let y = new_random_vec_f32(10000);
-        b.iter(|| dot_f32(&x, &y));
+        b.iter(|| dot_f32_fallback(&x, &y));
+    }
+
+    #[bench]
+    fn bench_dot_f16_fallback(b: &mut Bencher) {
+        let x = new_random_vec_f32(10000)
+            .iter()
+            .map(|&x| f16::from_f32(x))
+            .collect::<Vec<f16>>();
+        let y = new_random_vec_f32(10000)
+            .iter()
+            .map(|&x| f16::from_f32(x))
+            .collect::<Vec<f16>>();
+        b.iter(|| dot_f16_fallback(&x, &y));
+    }
+
+    #[bench]
+    #[cfg(target_arch = "aarch64")]
+    fn bench_dot_f32_sve(b: &mut Bencher) {
+        if !std::arch::is_aarch64_feature_detected!("sve") {
+            println!("sve is not available, skip bench_dot_f32_sve");
+            return;
+        }
+        let x = new_random_vec_f32(10000);
+        let y = new_random_vec_f32(10000);
+        b.iter(|| unsafe { dot_f32_sve(&x, &y) });
+    }
+
+    #[bench]
+    fn bench_dot_f32_sve_auto_vectorization(b: &mut Bencher) {
+        if !std::arch::is_aarch64_feature_detected!("sve") {
+            println!("sve is not available, skip bench_dot_f32_sve");
+            return;
+        }
+        let x = new_random_vec_f32(10000);
+        let y = new_random_vec_f32(10000);
+        b.iter(|| unsafe {
+            distance_sys::dot_f32_auto_vectorization(x.as_ptr(), y.as_ptr(), x.len())
+        });
+    }
+
+    #[bench]
+    fn bench_dot_f32_simsimd(b: &mut Bencher) {
+        let x = new_random_vec_f32(10000);
+        let y = new_random_vec_f32(10000);
+        b.iter(|| f32::dot(&x, &y));
+    }
+
+    #[test]
+    #[cfg(target_arch = "aarch64")]
+    fn test_aarch64() {
+        // check sve or neon target is available
+        if std::arch::is_aarch64_feature_detected!("sve") {
+            println!("sve is available");
+            return;
+        } else if !std::arch::is_aarch64_feature_detected!("neon") {
+            println!("neon is available");
+            return;
+        }
+        println!("sve and neon are not available, skip test_aarch64");
     }
 }

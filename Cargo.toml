@@ -6,8 +6,16 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-multiversion = "0.7.3"
+half = "2.4.0"
+multiversion = "0.7.4"
 rand = "0.8.5"
+simsimd = "4.1.1"
+distance-sys = { path = "./distance-sys" }
 
 [profile.bench]
 opt-level = 3
+lto = true
+
+[profile.release]
+opt-level = 3
+lto = true

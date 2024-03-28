@@ -1,0 +1,5 @@
+{
+	"rust-analyzer.linkedProjects": [
+		"./distance-sys/Cargo.toml"
+	],
+}

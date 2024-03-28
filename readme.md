@@ -7,7 +7,7 @@ rustup override set nightly
 ```
 - run benchmark
 ```bash
-cargo bench
+RUSTFLAGS='-C target-cpu=native' cargo bench
 ```
 
 ## my result
@@ -26,4 +26,18 @@ test tests::bench_dot_vnni       ... bench:         229 ns/iter (+/- 3)
 test tests::bench_dot_vnni_fault ... bench:         185 ns/iter (+/- 3)
 
 test result: ok. 0 passed; 0 failed; 1 ignored; 5 measured; 0 filtered out; finished in 4.94s
+```
+
+## show assembly code
+
+install cargo-show-asm
+
+```bash
+cargo install cargo-show-asm
+```
+
+show assembly code of certain function
+
+```bash
+cargo asm --lib dot_f16_fallback
 ```

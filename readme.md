@@ -10,7 +10,7 @@ rustup override set nightly
 RUSTFLAGS='-C target-cpu=native' cargo bench
 ```
 
-## my result
+## some result
 
 ```bash
 ubuntu@ip-172-31-65-183:~/rust/dot-bench$ cargo bench

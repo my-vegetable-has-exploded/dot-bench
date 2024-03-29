@@ -1,8 +1,14 @@
+use half::f16;
+
 #[cfg(target_arch = "aarch64")]
 #[link(name = "distance", kind = "static")]
 extern "C" {
     pub fn dot_f32_sve(a: *const f32, b: *const f32, len: usize) -> f32;
     pub fn dot_f32_auto_vectorization(a: *const f32, b: *const f32, len: usize) -> f32;
+    pub fn dot_i8_sve(a: *const i8, b: *const i8, len: usize) -> f32;
+    pub fn dot_i8_auto_vectorization(a: *const i8, b: *const i8, len: usize) -> f32;
+    pub fn dot_f16_sve(a: *const f16, b: *const f16, len: usize) -> f32;
+    pub fn dot_f16_auto_vectorization(a: *const f16, b: *const f16, len: usize) -> f32;
 }
 
 #[cfg(test)]

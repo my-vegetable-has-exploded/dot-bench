@@ -5,8 +5,16 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[workspace.dependencies]
+half = {version="2.4.0", features = [
+    "bytemuck",
+    "num-traits",
+    "rand_distr",
+    "serde",
+] }
+
 [dependencies]
-half = "2.4.0"
+half = {workspace = true}
 multiversion = "0.7.4"
 rand = "0.8.5"
 simsimd = "4.1.1"

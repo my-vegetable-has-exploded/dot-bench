@@ -1,8 +1,8 @@
 #![feature(test)]
+#![allow(internal_features)]
 #![feature(core_intrinsics)]
 // TODO: rust f16 support is still wip. We use half crate as workaround.
 // https://github.com/rust-lang/rust/issues/116909
-use distance_sys;
 use half::f16;
 
 extern crate test;
@@ -34,13 +34,13 @@ pub fn dot_i8_fallback(x: &[i8], y: &[i8]) -> f32 {
     "aarch64+sve"
 ))]
 pub fn dot_f16_fallback(x: &[f16], y: &[f16]) -> f32 {
-    let mut sum = 0.0;
+    let mut sum: f16 = f16::from_f32(0.0);
     assert_eq!(x.len(), y.len());
     let length = x.len();
     for i in 0..length {
-        sum += f32::from(x[i] * y[i]);
+        sum += x[i] * y[i];
     }
-    sum as f32
+    f16::to_f32(sum)
 }
 
 #[cfg(target_arch = "x86_64")]
@@ -166,11 +166,10 @@ pub unsafe fn dot_i8_avx512(x: &[i8], y: &[i8]) -> f32 {
 ))]
 pub fn dot_f32_fallback(x: &[f32], y: &[f32]) -> f32 {
     assert_eq!(x.len(), y.len());
-    // x.iter().zip(y.iter()).map(|(&a, &b)| a * b).sum()
     let mut sum = 0.0;
     for i in 0..x.len() {
-        unsafe { sum += std::intrinsics::fmul_fast(x[i], y[i]) };
-        // sum += x[i] * y[i];
+        // use fadd_fast and fmul_fast to enable fast-math optimization
+        unsafe { sum = std::intrinsics::fadd_fast(sum, std::intrinsics::fmul_fast(x[i], y[i])) };
     }
     sum
 }
@@ -182,6 +181,23 @@ pub unsafe fn dot_f32_sve(x: &[f32], y: &[f32]) -> f32 {
     let n = x.len();
     unsafe { distance_sys::dot_f32_sve(x.as_ptr(), y.as_ptr(), n) }
 }
+
+#[cfg(target_arch = "aarch64")]
+#[target_feature(enable = "sve")]
+pub unsafe fn dot_i8_sve(x: &[i8], y: &[i8]) -> f32 {
+    assert_eq!(x.len(), y.len());
+    let n = x.len();
+    unsafe { distance_sys::dot_i8_sve(x.as_ptr(), y.as_ptr(), n) }
+}
+
+#[cfg(target_arch = "aarch64")]
+#[target_feature(enable = "sve,fp16")]
+pub unsafe fn dot_f16_sve(x: &[f16], y: &[f16]) -> f32 {
+    assert_eq!(x.len(), y.len());
+    let n = x.len();
+    unsafe { distance_sys::dot_f16_sve(x.as_ptr(), y.as_ptr(), n) }
+}
+
 // #[cfg(target_arch = "aarch64")]
 // #[target_feature(enable = "sve")]
 // pub unsafe fn dot_f32_sve(x: &[f32], y: &[f32]) -> f32 {
@@ -193,7 +209,6 @@ pub unsafe fn dot_f32_sve(x: &[f32], y: &[f32]) -> f32 {
 
 //     return sum;
 // }
-
 #[multiversion::multiversion(targets(
     "x86_64/x86-64-v4",
     "x86_64/x86-64-v3",
@@ -377,10 +392,70 @@ mod tests {
     }
 
     #[bench]
+    fn bench_dot_i8_sve(b: &mut Bencher) {
+        if !std::arch::is_aarch64_feature_detected!("sve") {
+            println!("sve is not available, skip bench_dot_i8_sve");
+            return;
+        }
+        let x = new_random_vec_i8(10000);
+        let y = new_random_vec_i8(10000);
+        b.iter(|| unsafe { dot_i8_sve(&x, &y) });
+    }
+
+    #[bench]
+    fn bench_dot_i8_sve_auto_vectorization(b: &mut Bencher) {
+        let x = new_random_vec_i8(10000);
+        let y = new_random_vec_i8(10000);
+        b.iter(|| unsafe {
+            distance_sys::dot_i8_auto_vectorization(x.as_ptr(), y.as_ptr(), x.len())
+        });
+    }
+
+    #[bench]
+    fn bench_dot_i8_simsimd(b: &mut Bencher) {
+        let x = new_random_vec_i8(10000);
+        let y = new_random_vec_i8(10000);
+        b.iter(|| i8::dot(&x, &y));
+    }
+
+    #[bench]
     fn bench_dot_f32_simsimd(b: &mut Bencher) {
         let x = new_random_vec_f32(10000);
         let y = new_random_vec_f32(10000);
         b.iter(|| f32::dot(&x, &y));
+    }
+
+    #[bench]
+    fn bench_dot_f16_sve(b: &mut Bencher) {
+        if !std::arch::is_aarch64_feature_detected!("sve")
+            && !std::arch::is_aarch64_feature_detected!("fp16")
+        {
+            println!("sve or fp16 are not available, skip bench_dot_f16_sve");
+        }
+        let x = new_random_vec_f32(10000)
+            .iter()
+            .map(|&x| f16::from_f32(x))
+            .collect::<Vec<f16>>();
+        let y = new_random_vec_f32(10000)
+            .iter()
+            .map(|&x| f16::from_f32(x))
+            .collect::<Vec<f16>>();
+        b.iter(|| unsafe { dot_f16_sve(&x, &y) });
+    }
+
+    #[bench]
+    fn bench_dot_f16_auto_vectorization(b: &mut Bencher) {
+        let x = new_random_vec_f32(10000)
+            .iter()
+            .map(|&x| f16::from_f32(x))
+            .collect::<Vec<f16>>();
+        let y = new_random_vec_f32(10000)
+            .iter()
+            .map(|&x| f16::from_f32(x))
+            .collect::<Vec<f16>>();
+        b.iter(|| unsafe {
+            distance_sys::dot_f16_auto_vectorization(x.as_ptr(), y.as_ptr(), x.len())
+        });
     }
 
     #[test]

@@ -80,11 +80,11 @@ extern float32_t dot_f16_auto_vectorization(const float16_t* __restrict a, const
 	// use __restrict to tell the compiler that the pointers a and b do not overlap and can be optimized further
 	// enable fused multiply-add (FMA) instructions by floating-point control
 #pragma float_control(precise, off)
-	float16_t sum = 0.0;
+	float32_t sum = 0.0;
 	for (size_t i = 0; i < n; i += 1) {
-		sum += a[i] * b[i];
+		sum += (float32_t)a[i] * (float32_t)b[i];
 	}
-	return (float32_t)sum;
+	return sum;
 }
 
 #endif

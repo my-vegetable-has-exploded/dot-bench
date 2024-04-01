@@ -80,6 +80,7 @@ extern float dot_f16_auto_vectorization(const _Float16* __restrict a, const _Flo
 	// use __restrict to tell the compiler that the pointers a and b do not overlap and can be optimized further
 	// enable fused multiply-add (FMA) instructions by floating-point control
 #pragma float_control(precise, off)
+	// _Float16 represents a 16-bit floating-point number with native support, but most operations immediately promote operands of type __fp16 to float, so we need to use _Float16 here.
 	_Float16 sum = 0.0;
 	// it would be auto-vectorized by the compiler, see https://godbolt.org/z/cabsh6PPG for more details
 	for (size_t i = 0; i < n; i += 1) {

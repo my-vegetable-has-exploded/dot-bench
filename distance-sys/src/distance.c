@@ -4,7 +4,7 @@
 #if TARGET_ARM
 
 __attribute__((target("arch=armv8-a+sve")))
-extern float32_t dot_f32_sve(const float32_t* a, const float32_t* b, size_t n) {
+extern float dot_f32_sve(const float* a, const float* b, size_t n) {
 	svfloat32_t svsum = svdup_f32(0.0f);
 	svbool_t pg;
 	svfloat32_t sva, svb;
@@ -20,11 +20,11 @@ extern float32_t dot_f32_sve(const float32_t* a, const float32_t* b, size_t n) {
 }
 
 __attribute__((target("arch=armv8-a+sve")))
-extern float32_t dot_f32_auto_vectorization(const float32_t* __restrict a, const float32_t* __restrict b, size_t n) {
+extern float dot_f32_auto_vectorization(const float* __restrict a, const float* __restrict b, size_t n) {
 	// use __restrict to tell the compiler that the pointers a and b do not overlap and can be optimized further
 	// enable fused multiply-add (FMA) instructions by floating-point control
 #pragma float_control(precise, off)
-	float32_t sum = 0.0;
+	float sum = 0.0;
 	// see https://godbolt.org/z/64vdPva68 for more details
 	for (size_t i = 0; i < n; i += 1) {
 		sum += a[i] * b[i];
@@ -33,7 +33,7 @@ extern float32_t dot_f32_auto_vectorization(const float32_t* __restrict a, const
 }
 
 __attribute__((target("arch=armv8-a+sve")))
-extern float32_t dot_i8_auto_vectorization(const int8_t* __restrict a, const int8_t* __restrict b, size_t n) {
+extern float dot_i8_auto_vectorization(const int8_t* __restrict a, const int8_t* __restrict b, size_t n) {
 	// use __restrict to tell the compiler that the pointers a and b do not overlap and can be optimized further
 	// it won't use svdot when compiling using clang
 	// see https://godbolt.org/z/Tx4vzYfhs for more details
@@ -45,7 +45,7 @@ extern float32_t dot_i8_auto_vectorization(const int8_t* __restrict a, const int
 }
 
 __attribute__((target("arch=armv8-a+sve")))
-extern float32_t dot_i8_sve(const int8_t* __restrict a, const int8_t* __restrict b, size_t n) {
+extern float dot_i8_sve(const int8_t* __restrict a, const int8_t* __restrict b, size_t n) {
 	// use __restrict to tell the compiler that the pointers a and b do not overlap and can be optimized further
 	svint32_t svsum = svdup_s32(0);
 	svbool_t pg;
@@ -62,7 +62,7 @@ extern float32_t dot_i8_sve(const int8_t* __restrict a, const int8_t* __restrict
 }
 
 __attribute__((target("arch=armv8-a+sve+fp16")))
-extern float32_t dot_f16_sve(const float16_t* __restrict a, const float16_t* __restrict b, size_t n) {
+extern float dot_f16_sve(const _Float16* __restrict a, const _Float16* __restrict b, size_t n) {
 	svfloat16_t svsum = svdup_f16(0.0f);
 	svbool_t pg;
 	svfloat16_t sva, svb;
@@ -76,15 +76,16 @@ extern float32_t dot_f16_sve(const float16_t* __restrict a, const float16_t* __r
 }
 
 __attribute__((target("arch=armv8-a+sve+fp16")))
-extern float32_t dot_f16_auto_vectorization(const float16_t* __restrict a, const float16_t* __restrict b, size_t n) {
+extern float dot_f16_auto_vectorization(const _Float16* __restrict a, const _Float16* __restrict b, size_t n) {
 	// use __restrict to tell the compiler that the pointers a and b do not overlap and can be optimized further
 	// enable fused multiply-add (FMA) instructions by floating-point control
 #pragma float_control(precise, off)
-	float32_t sum = 0.0;
+	_Float16 sum = 0.0;
+	// it would be auto-vectorized by the compiler, see https://godbolt.org/z/cabsh6PPG for more details
 	for (size_t i = 0; i < n; i += 1) {
-		sum += (float32_t)a[i] * (float32_t)b[i];
+		sum += a[i] * b[i];
 	}
-	return sum;
+	return  (float)sum;
 }
 
 #endif

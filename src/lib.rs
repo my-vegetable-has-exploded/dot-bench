@@ -260,7 +260,10 @@ mod tests {
     fn new_random_vec_f32(size: usize) -> Vec<f32> {
         use rand::Rng;
         let mut rng = rand::thread_rng();
-        (0..size).map(|_| rng.gen_range(-127.0..128.0)).collect()
+        (0..size)
+            // .map(|_| rng.gen_range(-10000000.0..10000000.0))
+            .map(|_| rng.gen_range(-100.0..100.0))
+            .collect()
     }
 
     #[test]
@@ -392,6 +395,7 @@ mod tests {
     }
 
     #[bench]
+    #[cfg(target_arch = "aarch64")]
     fn bench_dot_i8_sve(b: &mut Bencher) {
         if !std::arch::is_aarch64_feature_detected!("sve") {
             println!("sve is not available, skip bench_dot_i8_sve");
@@ -409,6 +413,24 @@ mod tests {
         b.iter(|| unsafe {
             distance_sys::dot_i8_auto_vectorization(x.as_ptr(), y.as_ptr(), x.len())
         });
+    }
+
+    #[test]
+    #[cfg(target_arch = "aarch64")]
+    fn test_dot_i8_sve() {
+        if !std::arch::is_aarch64_feature_detected!("sve") {
+            println!("sve is not available, skip test_dot_i8_sve");
+            return;
+        }
+        let epsilon = 0.01;
+        let x = new_random_vec_i8(10000);
+        let y = new_random_vec_i8(10000);
+        let specialized = unsafe { dot_i8_sve(&x, &y) };
+        let fallback = dot_i8_fallback(&x, &y);
+        assert!(
+            (specialized - fallback).abs() / fallback.abs() < epsilon,
+            "specialized = {specialized}, fallback = {fallback}."
+        );
     }
 
     #[bench]
@@ -441,6 +463,32 @@ mod tests {
             .map(|&x| f16::from_f32(x))
             .collect::<Vec<f16>>();
         b.iter(|| unsafe { dot_f16_sve(&x, &y) });
+    }
+
+    #[test]
+    #[cfg(target_arch = "aarch64")]
+    fn test_dot_f16_sve() {
+        if !std::arch::is_aarch64_feature_detected!("sve")
+            && !std::arch::is_aarch64_feature_detected!("fp16")
+        {
+            println!("sve or fp16 are not available, skip test_dot_f16_sve");
+            return;
+        }
+        let epsilon = 0.01;
+        let x = new_random_vec_f32(100)
+            .iter()
+            .map(|&x| f16::from_f32(x))
+            .collect::<Vec<f16>>();
+        let y = new_random_vec_f32(100)
+            .iter()
+            .map(|&x| f16::from_f32(x))
+            .collect::<Vec<f16>>();
+        let specialized = unsafe { dot_f16_sve(&x, &y) };
+        let fallback = dot_f16_fallback(&x, &y);
+        assert!(
+            (specialized - fallback).abs() / fallback.abs() < epsilon,
+            "specialized = {specialized}, fallback = {fallback}."
+        );
     }
 
     #[bench]

@@ -34,18 +34,17 @@ test result: ok. 0 passed; 0 failed; 1 ignored; 5 measured; 0 filtered out; fini
 
 ```bash
 running 12 tests
-test tests::test_aarch64 ... ignored
-test tests::bench_dot_f16_auto_vectorization     ... bench:       1,927 ns/iter (+/- 8)
-test tests::bench_dot_f16_fallback               ... bench:      26,925 ns/iter (+/- 46)
-test tests::bench_dot_f16_sve                    ... bench:         554 ns/iter (+/- 2)
-test tests::bench_dot_f32_fallback               ... bench:       1,188 ns/iter (+/- 3)
-test tests::bench_dot_f32_simsimd                ... bench:       1,923 ns/iter (+/- 162)
-test tests::bench_dot_f32_sve                    ... bench:       1,249 ns/iter (+/- 10)
-test tests::bench_dot_f32_sve_auto_vectorization ... bench:       1,189 ns/iter (+/- 5)
-test tests::bench_dot_i8_fallback                ... bench:         542 ns/iter (+/- 11)
-test tests::bench_dot_i8_simsimd                 ... bench:         442 ns/iter (+/- 3)
-test tests::bench_dot_i8_sve                     ... bench:         267 ns/iter (+/- 0)
-test tests::bench_dot_i8_sve_auto_vectorization  ... bench:         541 ns/iter (+/- 16)
+test tests::bench_dot_f16_auto_vectorization     ... bench:         458 ns/iter (+/- 7)
+test tests::bench_dot_f16_fallback               ... bench:      26,929 ns/iter (+/- 465)
+test tests::bench_dot_f16_sve                    ... bench:         556 ns/iter (+/- 9)
+test tests::bench_dot_f32_fallback               ... bench:       1,178 ns/iter (+/- 4)
+test tests::bench_dot_f32_simsimd                ... bench:       1,922 ns/iter (+/- 4)
+test tests::bench_dot_f32_sve                    ... bench:       1,246 ns/iter (+/- 3)
+test tests::bench_dot_f32_sve_auto_vectorization ... bench:       1,178 ns/iter (+/- 6)
+test tests::bench_dot_i8_fallback                ... bench:         544 ns/iter (+/- 13)
+test tests::bench_dot_i8_simsimd                 ... bench:         450 ns/iter (+/- 7)
+test tests::bench_dot_i8_sve                     ... bench:         242 ns/iter (+/- 0)
+test tests::bench_dot_i8_sve_auto_vectorization  ... bench:         543 ns/iter (+/- 18)
 ```
 
 ## show assembly code

@@ -17,16 +17,16 @@
 
 #if TARGET_ARM
 
-extern float32_t dot_f32_sve(const float32_t* a, const float32_t* b, size_t n);
+extern float dot_f32_sve(const float* a, const float* b, size_t n);
 
-extern float32_t dot_f32_auto_vectorization(const float32_t* __restrict a, const float32_t* __restrict b, size_t n);
+extern float dot_f32_auto_vectorization(const float* __restrict a, const float* __restrict b, size_t n);
 
-extern float32_t dot_i8_sve(const int8_t* __restrict a, const int8_t* __restrict b, size_t n);
+extern float dot_i8_sve(const int8_t* __restrict a, const int8_t* __restrict b, size_t n);
 
-extern float32_t dot_i8_auto_vectorization(const int8_t* __restrict a, const int8_t* __restrict b, size_t n);
+extern float dot_i8_auto_vectorization(const int8_t* __restrict a, const int8_t* __restrict b, size_t n);
 
-extern float32_t dot_f16_sve(const float16_t* __restrict a, const float16_t* __restrict b, size_t n);
+extern float dot_f16_sve(const _Float16* __restrict a, const _Float16* __restrict b, size_t n);
 
-extern float32_t dot_f16_auto_vectorization(const float16_t* __restrict a, const float16_t* __restrict b, size_t n);
+extern float dot_f16_auto_vectorization(const _Float16* __restrict a, const _Float16* __restrict b, size_t n);
 
 #endif
